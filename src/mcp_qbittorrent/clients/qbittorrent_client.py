@@ -137,256 +137,115 @@ class QBittorrentClient:
         except aiohttp.ClientError as e:
             raise APIError(f"Request error: {e}")
 
-    # Torrent Management Methods
+    # Core Methods (6 methods for MCP tools)
 
-    async def get_torrent_list(
+    async def list_torrents(
         self,
         filter: Optional[str] = None,
         category: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Get list of torrents.
-
-        Args:
-            filter: Filter torrents by status (all, downloading, completed, paused, etc.)
-            category: Filter by category
-
-        Returns:
-            List of torrent dictionaries
-        """
+        """List torrents with optional filtering."""
         params = {}
         if filter:
             params["filter"] = filter
         if category:
             params["category"] = category
-
         return await self._request("GET", "/api/v2/torrents/info", params=params)
 
-    async def get_torrent_properties(self, hash: str) -> Dict[str, Any]:
-        """Get properties of a specific torrent.
-
-        Args:
-            hash: Torrent hash
-
-        Returns:
-            Torrent properties dictionary
-        """
-        return await self._request(
+    async def get_torrent_info(self, hash: str) -> Dict[str, Any]:
+        """Get detailed info for a specific torrent (properties + files)."""
+        properties = await self._request(
             "GET",
             "/api/v2/torrents/properties",
             params={"hash": hash}
         )
-
-    async def get_torrent_files(self, hash: str) -> List[Dict[str, Any]]:
-        """Get list of files in a torrent.
-
-        Args:
-            hash: Torrent hash
-
-        Returns:
-            List of file dictionaries
-        """
-        return await self._request(
+        files = await self._request(
             "GET",
             "/api/v2/torrents/files",
             params={"hash": hash}
         )
+        return {**properties, "files": files}
 
     async def add_torrent(
         self,
-        urls: Optional[str] = None,
-        torrents: Optional[bytes] = None,
+        urls: str,
         savepath: Optional[str] = None,
         category: Optional[str] = None,
         paused: bool = False
     ) -> str:
-        """Add torrent by URL or file.
-
-        Args:
-            urls: Torrent URL or magnet link
-            torrents: Torrent file content
-            savepath: Download save path
-            category: Torrent category
-            paused: Add torrent in paused state
-
-        Returns:
-            Response text
-        """
-        data = {}
-        if urls:
-            data["urls"] = urls
+        """Add torrent by URL or magnet link."""
+        data = {"urls": urls}
         if savepath:
             data["savepath"] = savepath
         if category:
             data["category"] = category
         if paused:
             data["paused"] = "true"
-
         return await self._request("POST", "/api/v2/torrents/add", data=data)
 
-    async def pause_torrent(self, hashes: str) -> str:
-        """Pause torrents.
-
-        Args:
-            hashes: Torrent hash(es), separated by |
-
-        Returns:
-            Response text
-        """
-        return await self._request(
-            "POST",
-            "/api/v2/torrents/pause",
-            data={"hashes": hashes}
-        )
-
-    async def resume_torrent(self, hashes: str) -> str:
-        """Resume torrents.
-
-        Args:
-            hashes: Torrent hash(es), separated by |
-
-        Returns:
-            Response text
-        """
-        return await self._request(
-            "POST",
-            "/api/v2/torrents/resume",
-            data={"hashes": hashes}
-        )
-
-    async def delete_torrent(
+    async def control_torrent(
         self,
         hashes: str,
+        action: str,
         delete_files: bool = False
     ) -> str:
-        """Delete torrents.
+        """Control torrent: pause, resume, or delete."""
+        actions = {
+            "pause": "/api/v2/torrents/pause",
+            "resume": "/api/v2/torrents/resume",
+            "delete": "/api/v2/torrents/delete"
+        }
+        if action not in actions:
+            raise APIError(f"Invalid action: {action}. Must be pause, resume, or delete")
 
-        Args:
-            hashes: Torrent hash(es), separated by |
-            delete_files: Also delete downloaded files
+        endpoint = actions[action]
+        data = {"hashes": hashes}
+        if action == "delete":
+            data["deleteFiles"] = "true" if delete_files else "false"
 
-        Returns:
-            Response text
-        """
-        return await self._request(
-            "POST",
-            "/api/v2/torrents/delete",
-            data={
-                "hashes": hashes,
-                "deleteFiles": "true" if delete_files else "false"
-            }
-        )
+        return await self._request("POST", endpoint, data=data)
 
-    # Search Methods
-
-    async def start_search(
+    async def search_torrents(
         self,
-        pattern: str,
+        query: str,
         plugins: str = "all",
-        category: str = "all"
+        category: str = "all",
+        limit: Optional[int] = 100
     ) -> Dict[str, Any]:
-        """Start a search job.
+        """Search for torrents and return results."""
+        import asyncio
 
-        Args:
-            pattern: Search query
-            plugins: Plugins to use (all, enabled, plugin_name)
-            category: Category filter (all, movies, tv, music, etc.)
-
-        Returns:
-            Search job info with 'id' field
-        """
-        return await self._request(
+        # Start search
+        search_job = await self._request(
             "POST",
             "/api/v2/search/start",
-            data={
-                "pattern": pattern,
-                "plugins": plugins,
-                "category": category
-            }
+            data={"pattern": query, "plugins": plugins, "category": category}
         )
+        search_id = search_job.get("id")
 
-    async def get_search_status(self, id: int) -> Dict[str, Any]:
-        """Get status of a search job.
+        # Wait for results (poll up to 30 seconds)
+        for _ in range(30):
+            await asyncio.sleep(1)
+            status = await self._request(
+                "GET",
+                "/api/v2/search/status",
+                params={"id": search_id}
+            )
+            if status[0]["status"] == "Stopped":
+                break
 
-        Args:
-            id: Search job ID
-
-        Returns:
-            Search status dictionary
-        """
-        return await self._request(
+        # Get results
+        results = await self._request(
             "GET",
-            "/api/v2/search/status",
-            params={"id": id}
+            "/api/v2/search/results",
+            params={"id": search_id, "limit": limit}
         )
 
-    async def get_search_results(
-        self,
-        id: int,
-        limit: Optional[int] = None,
-        offset: Optional[int] = None
-    ) -> Dict[str, Any]:
-        """Get results of a search job.
+        # Cleanup
+        await self._request("POST", "/api/v2/search/delete", data={"id": search_id})
 
-        Args:
-            id: Search job ID
-            limit: Maximum number of results
-            offset: Result offset
-
-        Returns:
-            Search results dictionary
-        """
-        params = {"id": id}
-        if limit is not None:
-            params["limit"] = limit
-        if offset is not None:
-            params["offset"] = offset
-
-        return await self._request("GET", "/api/v2/search/results", params=params)
-
-    async def stop_search(self, id: int) -> str:
-        """Stop a search job.
-
-        Args:
-            id: Search job ID
-
-        Returns:
-            Response text
-        """
-        return await self._request(
-            "POST",
-            "/api/v2/search/stop",
-            data={"id": id}
-        )
-
-    async def delete_search(self, id: int) -> str:
-        """Delete a search job.
-
-        Args:
-            id: Search job ID
-
-        Returns:
-            Response text
-        """
-        return await self._request(
-            "POST",
-            "/api/v2/search/delete",
-            data={"id": id}
-        )
-
-    # Application Methods
+        return results
 
     async def get_preferences(self) -> Dict[str, Any]:
-        """Get application preferences.
-
-        Returns:
-            Preferences dictionary
-        """
+        """Get qBittorrent application preferences."""
         return await self._request("GET", "/api/v2/app/preferences")
-
-    async def get_version(self) -> str:
-        """Get qBittorrent version.
-
-        Returns:
-            Version string
-        """
-        return await self._request("GET", "/api/v2/app/version")

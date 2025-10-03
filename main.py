@@ -20,12 +20,8 @@ async def test_client():
         password=settings.qbittorrent_password,
         timeout=settings.request_timeout
     ) as client:
-        # Test version
-        version = await client.get_version()
-        logger.info(f"qBittorrent version: {version}")
-
-        # Test getting torrent list
-        torrents = await client.get_torrent_list()
+        # Test listing torrents
+        torrents = await client.list_torrents()
         logger.info(f"Number of torrents: {len(torrents)}")
 
         if torrents:
