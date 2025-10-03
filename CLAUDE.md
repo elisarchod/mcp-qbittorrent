@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a FastMCP-based Model Context Protocol server that provides direct interaction with qBittorrent's Web API. The MCP server runs as a container alongside qbittorrent in a docker compose stack.
 
-**Current Status**: Phase 2 complete - Core qBittorrent API client fully implemented and tested. Ready for Phase 3 (MCP tools implementation).
+**Current Status**: Phase 2 complete - Core qBittorrent API client fully implemented and tested (17/17 tests passing). Phase 3 not started (server.py and qbittorrent_tools.py files created but empty).
 
 ## Technology Stack
 
@@ -26,16 +26,18 @@ mcp-qbittorrent/
 ├── main.py                     # Client test script ✅
 ├── src/
 │   └── mcp_qbittorrent/
-│       ├── server.py           # FastMCP server entry point (Phase 3 - pending)
+│       ├── server.py           # FastMCP server entry point ⏳ (0 lines - not started)
 │       ├── config.py           # Pydantic settings ✅ (38 lines)
 │       ├── tools/
-│       │   └── qbittorrent_tools.py   # qBittorrent API tools (Phase 3 - pending)
+│       │   └── qbittorrent_tools.py   # qBittorrent API tools ⏳ (0 lines - not started)
 │       ├── clients/
 │       │   └── qbittorrent_client.py  # qBittorrent API client ✅ (251 lines)
 │       └── models/
 │           └── schemas.py      # Pydantic models ✅ (129 lines)
 └── tests/
-    ├── test_qbittorrent_tools.py
+    ├── test_qbittorrent_client.py  # Unit tests ✅ (17/17 passing)
+    ├── test_integration.py         # Integration tests (5 tests)
+    ├── test_qbittorrent_tools.py   # MCP tools tests (pending)
     └── fixtures.py
 ```
 
@@ -166,15 +168,16 @@ if __name__ == "__main__":
 - qbittorrent_client.py: Full async API client implementation (251 lines)
 - schemas.py: Pydantic models for all API responses (129 lines)
 - main.py: Test script for validating client functionality
+- test_qbittorrent_client.py: Comprehensive unit tests (17/17 passing)
 - Successfully tested against local qBittorrent instance (http://localhost:15080)
 
-**⏳ Phase 3: MCP Tools Implementation (Next)**
-1. Implement `server.py` with FastMCP initialization
-2. Create FastMCP tool decorators in `qbittorrent_tools.py` for all 6 operations
+**⏳ Phase 3: MCP Tools Implementation (Next - Not Started)**
+1. Implement `server.py` with FastMCP initialization (currently 0 lines)
+2. Create FastMCP tool decorators in `qbittorrent_tools.py` for all 6 operations (currently 0 lines)
 3. Wire up tools to use QBittorrentClient methods
 4. Add tool parameter validation and descriptions
 5. Test tools locally via MCP protocol: `uv run python -m mcp_qbittorrent.server`
-6. Run test suite: `uv run pytest`
+6. Run test suite: `uv run pytest` (client tests passing: 17/17)
 
 **⏳ Phase 4: Containerization (After Phase 3)**
 1. Create `Dockerfile` for MCP server (use python:3.11-slim base)
@@ -192,6 +195,7 @@ if __name__ == "__main__":
 **✅ Phase 6: Documentation (Updated)**
 - README.md: Updated with current project status and usage
 - CLAUDE.md: Updated with actual workflow and phase tracking
+- qbittorrent-mcp-server-plan.md: Detailed phase tracking with test results
 
 ### Branching
 Use feature branch: `feature/mcp-qbittorrent-server`
