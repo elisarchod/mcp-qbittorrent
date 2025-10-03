@@ -12,7 +12,8 @@
       "Bash(uv add:*)",
       "Bash(tree:*)",
       "Bash(uv run:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(uv sync:*)"
     ],
     "deny": [],
     "ask": []
