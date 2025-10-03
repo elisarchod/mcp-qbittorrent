@@ -4,7 +4,7 @@
 
 Create a FastMCP-based Model Context Protocol server that provides direct interaction with qBittorrent's Web API through Claude. The MCP server will run as a container alongside qbittorrent in the existing docker compose stack.
 
-**IMPORTANT**: This project will be initialized and deployed via Docker Compose from the start. All development and production deployment will use containerized workflows.
+**IMPORTANT**: Development will start locally with the Python client and MCP server, then containerized for deployment via Docker Compose.
 
 ## Architecture
 
@@ -73,12 +73,10 @@ Create a FastMCP-based Model Context Protocol server that provides direct intera
 
 ## Project Structure
 
-**NOTE**: Dockerfile and docker-compose.yml are created FIRST before any Python code.
-
 ```
 mcp-qbittorrent/
-├── Dockerfile                  # MCP server container (CREATE FIRST)
-├── docker-compose.yml          # Standalone deployment config (CREATE FIRST)
+├── Dockerfile                  # MCP server container (create after core implementation)
+├── docker-compose.yml          # Standalone deployment config (create after core implementation)
 ├── pyproject.toml              # uv project config
 ├── README.md
 ├── src/
@@ -157,9 +155,9 @@ from pathlib import Path
 
 class Settings(BaseSettings):
     # qBittorrent settings
-    qbittorrent_url: str = Field(default="http://qbittorrent:15080")
+    qbittorrent_url: str = Field(default="http://localhost:15080")
     qbittorrent_username: str = Field(default="admin")
-    qbittorrent_password: str = Field(default="adminadmin")
+    qbittorrent_password: str = Field(default="adminadmin")  # qBittorrent WebUI password (username: admin)
 
     class Config:
         env_file = ".env"
@@ -200,9 +198,9 @@ services:
       dockerfile: Dockerfile
     container_name: turtle-mcp-qbittorrent
     environment:
-      - QB_MCP_QBITTORRENT_URL=http://qbittorrent:15080
+      - QB_MCP_QBITTORRENT_URL=http://localhost:15080
       - QB_MCP_QBITTORRENT_USERNAME=${QB_USERNAME:-admin}
-      - QB_MCP_QBITTORRENT_PASSWORD=${QB_PASSWORD:-adminadmin}
+      - QB_MCP_QBITTORRENT_PASSWORD=${QB_PASSWORD:-adminadmin}  # qBittorrent WebUI password (username: admin)
     networks:
       - turtle-network
     depends_on:
@@ -211,33 +209,36 @@ services:
 
 ## Development Workflow
 
-**CRITICAL**: Initialize project with Docker Compose from the start. Do not develop locally first.
-
-### Phase 1: Project Setup (Docker Compose First)
+### Phase 1: Local Development Setup
 1. Create new branch: `feature/mcp-qbittorrent-server`
-2. Create project structure with `Dockerfile` and `docker-compose.yml` first
-3. Initialize uv project: `uv init mcp-qbittorrent`
-4. Add dependencies: `fastmcp`, `aiohttp`, `pydantic`, `pydantic-settings`
-5. Build initial container: `docker-compose build mcp-qbittorrent`
-6. Verify container starts: `docker-compose up mcp-qbittorrent`
+2. Initialize uv project: `uv init mcp-qbittorrent`
+3. Add dependencies: `fastmcp`, `aiohttp`, `pydantic`, `pydantic-settings`
+4. Create project structure with directories for src, tools, clients, models
 
-### Phase 2: Core Implementation (In Container)
+### Phase 2: Core Client Implementation
 1. Implement qBittorrent API client with authentication
-2. Create FastMCP tool decorators for all qBittorrent operations
-3. Add comprehensive error handling and logging
-4. Test changes via: `docker-compose restart mcp-qbittorrent`
+2. Test client against local qBittorrent instance (http://localhost:15080)
+3. Create Pydantic models for API responses
+4. Add comprehensive error handling and logging
 
-### Phase 3: Testing (Container-based)
-1. Unit tests for client wrappers (mocked) - run via `docker-compose exec`
-2. Integration tests with real qBittorrent instance
-3. E2E tests via MCP protocol from host to container
+### Phase 3: MCP Tools Implementation
+1. Create FastMCP server entry point
+2. Implement FastMCP tool decorators for all qBittorrent operations
+3. Test tools locally via MCP protocol
+4. Run tests: `uv run pytest`
 
-### Phase 4: Integration with Existing Stack
+### Phase 4: Containerization
+1. Create `Dockerfile` for MCP server
+2. Create `docker-compose.yml` for standalone deployment
+3. Build and test container: `docker-compose build && docker-compose up`
+4. Verify container can communicate with qBittorrent container
+
+### Phase 5: Integration with Existing Stack
 1. Update `build/docker-compose.yml` to include mcp-qbittorrent service
 2. Configure networking between mcp-qbittorrent and qbittorrent containers
 3. Test full stack orchestration: `cd build && docker-compose up -d`
 
-### Phase 5: Documentation
+### Phase 6: Documentation
 1. Update main README.md with MCP server info
 2. Create usage examples for Claude Desktop
 3. Document all MCP tools with examples
@@ -263,7 +264,7 @@ async def test_qbittorrent_login(mock_qb_client):
     client = QBittorrentClient(
         base_url="http://localhost:15080",
         username="admin",
-        password="adminadmin"
+        password="adminadmin"  # qBittorrent WebUI password (username: admin)
     )
     await client.login()
     assert client.cookie is not None
