@@ -7,17 +7,17 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """qBittorrent MCP server settings."""
 
-    # qBittorrent connection settings
+    # qBittorrent connection settings (required)
     qbittorrent_url: str = Field(
-        default="http://localhost:15080",
+        ...,
         description="qBittorrent Web API URL"
     )
     qbittorrent_username: str = Field(
-        default="admin",
+        ...,
         description="qBittorrent Web API username"
     )
     qbittorrent_password: str = Field(
-        default="adminadmin",
+        ...,
         description="qBittorrent Web API password"
     )
 
