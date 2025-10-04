@@ -13,18 +13,11 @@ This server bridges the gap between AI assistants (like Claude) and qBittorrent,
 - **Status Monitoring**: "What's my download speed?" - get instant insights into your torrent activity
 - **Automation Ready**: Integrates with AI workflows for automated content management
 
-**Real-World :**
-- Content creators managing large media libraries
-- IT administrators handling software distributions
-- Home users wanting hands-free torrent management
-- Developers needing automated content delivery
-
-
 ## How It Works
 
 The server acts as a translator between AI assistants and qBittorrent:
 
-1. **AI Assistant** sends natural language commands ("Show me active downloads")
+1. **AI Assistant** geys natural language commands ("Show me active downloads"), has the download manager as available mcp 
 2. **MCP Server** converts commands to qBittorrent API calls
 3. **qBittorrent** executes the operations and returns data
 4. **MCP Server** formats responses for the AI assistant
@@ -33,19 +26,6 @@ The server acts as a translator between AI assistants and qBittorrent:
 - **Tools**: 6 specialized functions for torrent management
 - **Client**: Handles communication with qBittorrent Web API
 - **Models**: Structured data formats for reliable AI parsing
-
-## Available Commands
-
-The server provides 6 core functions for torrent management:
-
-| Command | What It Does | Example |
-|---------|--------------|---------|
-| `list_downloads` | Show torrents with optional filtering | "Show me all active downloads" |
-| `get_download_info` | Get detailed info about a specific torrent | "Tell me about the Ubuntu torrent" |
-| `add_download` | Add new torrents from URL or magnet link | "Download this Ubuntu ISO" |
-| `control_download` | Pause, resume, or delete torrents | "Pause all downloads" |
-| `search_content` | Search for torrents using built-in plugins | "Find Ubuntu 24.04 torrents" |
-| `get_download_settings` | View qBittorrent settings | "What's my download speed limit?" |
 
 ## Quick Start
 
