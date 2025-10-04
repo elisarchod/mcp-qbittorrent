@@ -1,3 +1,6 @@
+docker-compose -f /home/pie/git/mcp-qbittorrent/build/docker-compose.yml up -d
+
+
 # MCP qBittorrent Server
 
 > AI-powered torrent management through natural language commands

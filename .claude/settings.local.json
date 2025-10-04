@@ -20,7 +20,9 @@
       "WebFetch(domain:gofastmcp.com)",
       "Bash(env)",
       "Bash(pytest:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(mkdir:*)",
+      "Bash(docker-compose:*)"
     ],
     "deny": [],
     "ask": []
