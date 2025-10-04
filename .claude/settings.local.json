@@ -14,7 +14,10 @@
       "Bash(uv run:*)",
       "Bash(curl:*)",
       "Bash(uv sync:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "WebFetch(domain:spec.modelcontextprotocol.io)",
+      "WebSearch",
+      "WebFetch(domain:gofastmcp.com)"
     ],
     "deny": [],
     "ask": []

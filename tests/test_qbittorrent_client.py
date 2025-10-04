@@ -248,7 +248,7 @@ class TestErrorHandling:
             m.get(f"{BASE_URL}/api/v2/torrents/info", status=403, body="Forbidden")
 
             async with client:
-                with pytest.raises(AuthenticationError, match="expired or invalid"):
+                with pytest.raises(AuthenticationError, match="Token expired"):
                     await client.list_torrents()
 
     @pytest.mark.asyncio
@@ -259,5 +259,5 @@ class TestErrorHandling:
             m.get(f"{BASE_URL}/api/v2/torrents/info", status=500, body="Server Error")
 
             async with client:
-                with pytest.raises(APIError, match="API request failed: 500"):
+                with pytest.raises(APIError, match="API error: 500"):
                     await client.list_torrents()

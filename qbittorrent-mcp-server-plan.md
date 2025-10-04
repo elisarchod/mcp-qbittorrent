@@ -7,7 +7,6 @@
 ### Completed Phases
 
 - ✅ **Phase 1**: Local development setup complete
-  - Feature branch `feature/mcp-qbittorrent-server` created
   - uv project initialized with all dependencies
   - Project structure created
 
