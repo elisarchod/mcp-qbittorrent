@@ -22,7 +22,10 @@
       "Bash(pytest:*)",
       "Bash(find:*)",
       "Bash(mkdir:*)",
-      "Bash(docker-compose:*)"
+      "Bash(docker-compose:*)",
+      "Bash(git pull:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
