@@ -116,7 +116,7 @@ Create a FastMCP-based Model Context Protocol server that provides direct intera
 mcp-qbittorrent/
 ├── Dockerfile                  # MCP server container (create after core implementation)
 ├── docker-compose.yml          # Standalone deployment config (create after core implementation)
-├── pyproject.toml              # uv project config
+├── pyproject.toml              # Minimal uv config (no PyPI metadata)
 ├── README.md
 ├── src/
 │   └── mcp_qbittorrent/
