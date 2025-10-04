@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a FastMCP-based Model Context Protocol server that provides direct interaction with qBittorrent's Web API. The MCP server runs as a container alongside qbittorrent in a docker compose stack.
 
-**Current Status**: Phase 3 complete - MCP tools fully implemented with 2025 best practices (22/22 tests passing). Ready for Phase 4 (Containerization).
+**Current Status**: Phase 3 complete - MCP tools fully implemented with 2025 best practices (30/30 tests passing). Ready for Phase 4 (Containerization).
 
 ## Technology Stack
 
@@ -24,20 +24,26 @@ mcp-qbittorrent/
 ├── docker-compose.yml          # Standalone deployment config (Phase 4 - pending)
 ├── pyproject.toml              # uv project config ✅
 ├── main.py                     # Client test script ✅
-├── src/
-│   └── mcp_qbittorrent/
-│       ├── server.py           # FastMCP server entry point ✅ (37 lines)
-│       ├── config.py           # Pydantic settings ✅ (38 lines)
-│       ├── tools/
-│       │   └── qbittorrent_tools.py   # 6 MCP tools with 2025 best practices ✅ (322 lines)
-│       ├── clients/
-│       │   └── qbittorrent_client.py  # Simplified async API client ✅ (120 lines)
-│       └── models/
-│           └── schemas.py      # Pydantic models + MCP response models ✅ (128 lines)
-└── tests/
-    ├── test_qbittorrent_client.py  # Unit tests ✅ (22/22 passing)
-    ├── test_integration.py         # Integration tests ✅ (5 tests)
-    └── fixtures.py
+├── src/mcp_qbittorrent/        # 642 production lines
+│   ├── server.py               # FastMCP server entry point ✅ (34 lines)
+│   ├── config.py               # Pydantic settings ✅ (38 lines)
+│   ├── tools/
+│   │   └── qbittorrent_tools.py   # 6 MCP tools with 2025 best practices ✅ (322 lines)
+│   ├── clients/
+│   │   └── qbittorrent_client.py  # Async API client ✅ (120 lines)
+│   └── models/
+│       └── schemas.py          # Pydantic models + MCP response models ✅ (128 lines)
+└── tests/                      # 716 test lines (111% test-to-code ratio)
+    ├── unit/
+    │   └── test_client.py      # Unit tests with mocks
+    ├── integration/
+    │   └── test_qbittorrent_integration.py  # Real instance tests
+    ├── test_qbittorrent_client.py
+    ├── test_integration.py
+    ├── fixtures.py             # Test fixtures and mocks
+    └── conftest.py             # pytest configuration
+
+**30 tests passing** (unit + integration)
 ```
 
 ## Development Commands
@@ -126,35 +132,55 @@ The server exposes 6 qBittorrent Web API tools with enhanced LLM accuracy:
 
 Tools are fully implemented in `src/mcp_qbittorrent/tools/qbittorrent_tools.py` (322 lines).
 
-### qBittorrent Client (✅ Simplified & Optimized)
+### qBittorrent Client (✅ Implementation Details)
 
 The `QBittorrentClient` class in `clients/qbittorrent_client.py` provides:
-- Simplified async implementation (120 lines, reduced 39% from 198)
-- Authentication with qBittorrent Web API (session cookie management)
-- Async context manager support (`async with`)
+- Async implementation with aiohttp (120 lines)
+- Session-based authentication (cookie management)
+- Async context manager support (`async with` for automatic cleanup)
 - 6 core methods mapped to MCP tools:
   - `list_torrents(filter, category)` → `qb_list_torrents`
-  - `get_torrent_info(hash)` → `qb_torrent_info` (uses asyncio.gather for parallel calls)
+  - `get_torrent_info(hash)` → `qb_torrent_info` (**uses asyncio.gather for parallel API calls**)
   - `add_torrent(urls, savepath, category, paused)` → `qb_add_torrent`
   - `control_torrent(hashes, action, delete_files)` → `qb_control_torrent`
-  - `search_torrents(query, plugins, category, limit)` → `qb_search_torrents`
+  - `search_torrents(query, plugins, category, limit)` → `qb_search_torrents` (polls for completion)
   - `get_preferences()` → `qb_get_preferences`
-- Concise error handling (AuthenticationError, APIError)
-- Configurable timeout handling
+- Custom exception hierarchy (AuthenticationError, APIError)
+- Configurable timeout handling (prevents hanging requests)
+- Unified `_request()` method eliminates code duplication
 
 ## Implementation Pattern
 
 ### FastMCP Server Entry Point (server.py)
 ```python
 from fastmcp import FastMCP
-from mcp_qbittorrent.tools import qbittorrent_tools
+from mcp_qbittorrent.config import settings
+from mcp_qbittorrent.clients.qbittorrent_client import QBittorrentClient
+from mcp_qbittorrent.tools.qbittorrent_tools import register_tools
 
+# Initialize FastMCP server
 mcp = FastMCP("qbittorrent-manager")
-qbittorrent_tools.register(mcp)
+
+# Create global qBittorrent client instance
+qb_client = QBittorrentClient(
+    base_url=settings.qbittorrent_url,
+    username=settings.qbittorrent_username,
+    password=settings.qbittorrent_password,
+    timeout=settings.request_timeout
+)
+
+# Register qBittorrent tools
+register_tools(mcp, qb_client)
 
 if __name__ == "__main__":
     mcp.run()
 ```
+
+**Key Architecture Decisions:**
+- Global client instance shared across all tool invocations
+- Session reuse for all requests (TCP connection pooling)
+- Environment-based configuration via Pydantic BaseSettings
+- Tools registered via function that takes mcp and client as parameters
 
 
 ### Testing Strategy
@@ -174,24 +200,21 @@ if __name__ == "__main__":
 
 **✅ Phase 2: Core Client Implementation (Complete)**
 - config.py: Pydantic settings with environment variable support (38 lines)
-- qbittorrent_client.py: Simplified async API client (120 lines, reduced from 198)
+- qbittorrent_client.py: Async API client with session management (120 lines)
 - schemas.py: Pydantic models for all API responses (128 lines with MCP response models)
 - main.py: Test script for validating client functionality
-- test_qbittorrent_client.py: Comprehensive unit tests (22/22 passing)
-- Successfully tested against local qBittorrent instance (http://localhost:15080)
+- Comprehensive unit and integration tests (30 tests passing)
 
 **✅ Phase 3: MCP Tools Implementation (Complete - 2025 Best Practices)**
-1. ✅ Implemented `server.py` with FastMCP initialization (37 lines)
-2. ✅ Created FastMCP tool decorators in `qbittorrent_tools.py` for all 6 operations (322 lines)
-3. ✅ Wired up tools to use QBittorrentClient methods
-4. ✅ Added comprehensive parameter validation with Pydantic Field annotations
-5. ✅ Applied 2025 MCP best practices:
-   - Literal types for enum values
-   - Regex patterns for validation
-   - Structured Pydantic response models
-   - Enhanced docstrings with examples
-   - Input constraints (min/max, patterns)
-6. ✅ All tests passing: `uv run pytest` (22/22 tests)
+1. ✅ `server.py` with FastMCP initialization (34 lines)
+2. ✅ FastMCP tool decorators in `qbittorrent_tools.py` for all 6 operations (322 lines)
+3. ✅ Tools use QBittorrentClient methods with comprehensive error handling
+4. ✅ 2025 MCP best practices applied:
+   - Literal types for enum values (prevents LLM hallucinations)
+   - Regex patterns for validation (40-char hashes, URLs)
+   - Structured Pydantic response models (consistent success/error/data format)
+   - Enhanced docstrings with natural language examples
+   - Input constraints (min/max length, ranges)
 
 **⏳ Phase 4: Containerization (Next - Not Started)**
 1. Create `Dockerfile` for MCP server (use python:3.11-slim base)
@@ -206,20 +229,31 @@ if __name__ == "__main__":
 3. Test full stack: `cd build && docker-compose up -d`
 4. Verify MCP server accessible via Claude Desktop
 
-**✅ Phase 6: Documentation (Updated)**
-- README.md: Updated with current project status and usage
-- CLAUDE.md: Updated with actual workflow and phase tracking
-- qbittorrent-mcp-server-plan.md: Detailed phase tracking with test results
+**✅ Phase 6: Documentation (Complete)**
+- README.md: Portfolio-focused with technical rationale
+- CLAUDE.md: LLM-focused implementation guidance
 
 ### Branching
 Use feature branch: `feature/mcp-qbittorrent-server`
 
 ## Security Considerations
 
-1. **Never hardcode credentials** - use environment variables only
-2. **Validate all inputs** - especially torrent URLs and hashes before passing to qBittorrent API
-3. **Container isolation** - run MCP server with minimal privileges
-4. **Network isolation** - only expose MCP server on internal docker network
+1. **Never hardcode credentials** - use environment variables with Pydantic BaseSettings
+2. **Validate all inputs** - Pydantic Field validation on all MCP tool parameters (regex patterns, min/max length)
+3. **Timeout handling** - Configurable timeout prevents resource exhaustion from hanging requests
+4. **Session management** - Cookie-based authentication with automatic error handling (403 = token expired)
+5. **Container isolation** (Phase 4) - run MCP server with minimal privileges
+6. **Network isolation** (Phase 4) - only expose MCP server on internal docker network
+
+## Important Implementation Notes for Claude Code
+
+When working on this codebase:
+- **DO NOT** modify line counts in documentation unless verifying with `wc -l`
+- **DO NOT** add new features without updating both README.md and CLAUDE.md
+- **DO NOT** change MCP tool signatures without updating type annotations and docstrings
+- **DO** run tests after any changes: `uv run pytest -v`
+- **DO** verify qBittorrent API compatibility: https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-4.1)
+- **DO** follow 2025 MCP best practices for any new tools (Literal types, regex patterns, structured responses)
 
 ## References
 

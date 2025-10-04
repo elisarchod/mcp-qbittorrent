@@ -36,7 +36,6 @@
 ### Pending Phases
 
 - ⏳ **Phase 5**: Integration with docker-compose stack
-- ✅ **Phase 6**: Documentation updated (README.md, CLAUDE.md, plan.md)
 
 ## Overview
 

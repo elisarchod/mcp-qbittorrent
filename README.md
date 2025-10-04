@@ -25,7 +25,7 @@ A FastMCP-based server implementing the **Model Context Protocol (MCP)** for sea
 
 ```
 ┌─────────────────┐
-│  Claude/LLM     │  Natural language requests
+│  Claude/LLM     │  Natural language: "Show me all active downloads"
 └────────┬────────┘
          │ MCP Protocol (JSON-RPC)
          ▼
@@ -33,36 +33,37 @@ A FastMCP-based server implementing the **Model Context Protocol (MCP)** for sea
 │  FastMCP Server (src/mcp_qbittorrent/)      │
 │                                             │
 │  ┌──────────────────────────────────────┐  │
-│  │ 6 MCP Tools (qbittorrent_tools.py)   │  │  304 lines
-│  │ • Enhanced type annotations          │  │
-│  │ • Literal enums, regex validation    │  │
+│  │ 6 MCP Tools (qbittorrent_tools.py)   │  │  322 lines
+│  │ • Literal types (no hallucinations)  │  │
+│  │ • Regex validation (hash, URL)       │  │
+│  │ • Structured Pydantic responses      │  │
 │  └──────────────┬───────────────────────┘  │
 │                 │                           │
 │  ┌──────────────▼───────────────────────┐  │
-│  │ QBittorrent Client (async)           │  │  115 lines (-39%)
-│  │ • Session management                 │  │
+│  │ QBittorrent Client (async)           │  │  120 lines
+│  │ • Session management (TCP reuse)     │  │
 │  │ • Parallel requests (asyncio.gather) │  │
+│  │ • Custom exceptions (Auth, API)      │  │
 │  └──────────────┬───────────────────────┘  │
 └─────────────────┼───────────────────────────┘
-                  │ HTTP (qBittorrent Web API)
+                  │ HTTP (qBittorrent Web API v2)
                   ▼
          ┌─────────────────┐
-         │  qBittorrent    │
+         │  qBittorrent    │  Manages torrents
          └─────────────────┘
 ```
 
 ### Component Breakdown
 
-| Component | Lines | Complexity | Responsibility |
-|-----------|-------|------------|----------------|
-| `server.py` | 24 | 1 | FastMCP initialization & tool registration |
-| `config.py` | 37 | 1 | Environment-based settings with validation |
-| `qbittorrent_client.py` | 115 | 3 | Async HTTP client with session management |
-| `qbittorrent_tools.py` | 304 | 2 | 6 MCP tools with enhanced annotations |
-| `models/response.py` | 47 | 1 | Structured Pydantic response models |
-| `utils/logging_handler.py` | 8 | 1 | Centralized logging configuration |
+| Component | Lines | Responsibility |
+|-----------|-------|----------------|
+| `server.py` | 34 | FastMCP initialization & tool registration |
+| `config.py` | 38 | Environment-based settings with validation |
+| `qbittorrent_client.py` | 120 | Async HTTP client with session management |
+| `qbittorrent_tools.py` | 322 | 6 MCP tools with enhanced annotations |
+| `models/schemas.py` | 128 | Structured Pydantic response models |
 
-**Average Cyclomatic Complexity: 1.5** (excellent - target is <5)
+**Total: 642 production lines** | **Tests: 716 lines (111% ratio)**
 
 ## MCP Tools
 
@@ -133,11 +134,17 @@ uv run python main.py  # Should connect and list torrents
 # Start MCP server
 uv run python -m mcp_qbittorrent.server
 
-# Run tests (9/9 passing)
+# Run tests (30/30 passing)
 uv run pytest -v
 
 # Run tests with coverage
 uv run pytest --cov=src/mcp_qbittorrent --cov-report=term
+
+# Run only unit tests
+uv run pytest tests/unit/ -v
+
+# Run only integration tests (requires running qBittorrent)
+uv run pytest tests/integration/ -v
 ```
 
 ### Configuration
@@ -157,24 +164,27 @@ Environment variables with `QB_MCP_` prefix (managed via Pydantic BaseSettings):
 ## Project Structure
 
 ```
-src/mcp_qbittorrent/          # 554 production lines
-├── server.py                 # FastMCP initialization (24 lines)
-├── config.py                 # Environment settings (37 lines)
+src/mcp_qbittorrent/          # 642 production lines
+├── server.py                 # FastMCP initialization (34 lines)
+├── config.py                 # Environment settings (38 lines)
 ├── clients/
-│   └── qbittorrent_client.py # Async API client (115 lines, -39%)
+│   └── qbittorrent_client.py # Async API client (120 lines)
 ├── models/
-│   └── response.py           # Pydantic response models (47 lines)
-├── tools/
-│   └── qbittorrent_tools.py  # 6 MCP tools (304 lines)
-└── utils/
-    └── logging_handler.py    # Centralized logging (8 lines)
+│   └── schemas.py            # Pydantic response models (128 lines)
+└── tools/
+    └── qbittorrent_tools.py  # 6 MCP tools (322 lines)
 
-tests/                        # 352 test lines
+tests/                        # 716 test lines
 ├── unit/
-│   └── test_client.py        # Unit tests with mocks (6 tests)
+│   └── test_client.py        # Unit tests with mocks
 ├── integration/
-│   └── test_qbittorrent_integration.py  # Real instance tests (3 tests)
-└── conftest.py               # pytest fixtures
+│   └── test_qbittorrent_integration.py  # Real instance tests
+├── test_qbittorrent_client.py
+├── test_integration.py
+├── fixtures.py               # Test fixtures and mocks
+└── conftest.py               # pytest configuration
+
+**30 tests passing**
 ```
 
 ## Usage Examples
@@ -216,44 +226,45 @@ User: "What's my download speed limit?"
 ## Development Status
 
 **Completed (Phases 1-3):**
-- ✅ Async Python client 
-- ✅ 6 MCP tools (Literal types, regex validation)
-- ✅ Comprehensive testing: 9/9 passing, 63% test ratio
-- ✅ Clean architecture: avg complexity 1.5
+- ✅ Async Python client with session management
+- ✅ 6 MCP tools (Literal types, regex validation, structured responses)
+- ✅ Comprehensive testing: 30/30 passing, 111% test-to-code ratio
+- ✅ Clean architecture: Single responsibility, DRY principles
 
 **Planned (Phases 4-5):**
 - ⏳ Containerization: Dockerfile + docker-compose
-- ⏳ Integration: Multi-container deployment
-- ⏳ CI/CD: GitHub Actions for automated testing
+- ⏳ Integration: Multi-container deployment with existing services
+- ⏳ CI/CD: Automated testing pipeline
 
 ## Technical Highlights
 
-**ML/AI:**
-- MCP protocol expertise (emerging standard for LLM tool use)
-- LLM-optimized interface design (Literal types, structured responses)
-- Async architecture for concurrent request handling
-- Parallel API calls with `asyncio.gather()` (-50% latency)
+**MCP Protocol Implementation:**
+- **Type Constraints for LLM Accuracy**: `Literal` types prevent hallucinations by constraining valid enum values (filter states, torrent actions)
+- **Regex Validation**: Pattern matching for 40-char hex hashes and URLs catches invalid inputs before API calls
+- **Structured Responses**: Pydantic models ensure consistent, parseable outputs (success/error/data fields)
+- **Enhanced Docstrings**: Natural language examples guide LLM tool selection ("Show me all active downloads" → `list_downloads(filter="downloading")`)
 
-**Engineering:**
-- Clean architecture with clear separation of concerns
-- 12-factor app configuration (environment-based settings)
-- Professional error handling (custom exceptions, structured errors)
-- Modern Python tooling (uv, Ruff, Pydantic V2)
+**Why These Design Choices Matter:**
+- **Async/Await Throughout**: Non-blocking I/O prevents thread blocking during network requests to qBittorrent API
+- **Parallel API Calls**: `asyncio.gather()` in `get_torrent_info()` fetches properties + files concurrently
+- **Session Management**: Persistent aiohttp session reuses TCP connections, avoiding costly handshakes per request
+- **Environment-Based Config**: 12-factor app principles enable different configurations per deployment (local/container/production)
+- **Custom Exception Hierarchy**: `AuthenticationError` vs `APIError` enables precise error handling and meaningful user feedback
+
+**Code Quality Metrics:**
+- 642 production lines, 716 test lines (111% ratio)
+- Single Responsibility Principle: Each function averages 15-20 lines
+- DRY principles: Unified `_request()` method for all HTTP operations
+- Modern Python: f-strings, comprehensions, context managers (`async with`)
 
 ## Security & Best Practices
 
 **Security:**
-- ✅ Environment-based credentials (never hardcoded)
-- ✅ Pydantic validation on all inputs
-- ✅ Session token management with auto-refresh
-- ✅ Timeout handling (prevents hanging requests)
-- ⏳ Container isolation (Phase 4)
-
-**Code Quality:**
-- ✅ Single Responsibility Principle (avg 20 lines/function)
-- ✅ DRY principles (unified `_request()` method)
-- ✅ Pythonic idioms (f-strings, comprehensions, context managers)
-- ✅ Custom exception hierarchy for error handling
+- Environment-based credentials (never hardcoded) via Pydantic BaseSettings
+- Input validation on all MCP tool parameters (min/max length, regex patterns)
+- Session-based authentication with cookie management
+- Timeout handling prevents resource exhaustion from hanging requests
+- Container isolation planned (Phase 4)
 
 ## References
 
