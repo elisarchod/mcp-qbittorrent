@@ -1,0 +1,246 @@
+# mcp-qbittorrent
+
+FastMCP-based Model Context Protocol server for qBittorrent Web API integration.
+
+## Overview
+
+This MCP server provides Claude with direct access to qBittorrent's Web API, enabling torrent management, search, and monitoring capabilities through natural language interactions.
+
+## Project Status
+
+
+**Current Phase: Phase 2 Complete - Core Client Implementation**
+
+- ✅ Phase 1: Project setup with uv, dependencies configured
+- ✅ Phase 2: qBittorrent API client fully implemented and tested (17/17 tests passing)
+- ⏳ Phase 3: MCP tools implementation (not started - files created but empty)
+- ⏳ Phase 4: Containerization with Docker
+- ⏳ Phase 5: Integration with existing docker-compose stack
+- ✅ Phase 6: Documentation updated
+
+## Technology Stack
+
+- **Python 3.11+**: Async/await, type hints
+- **FastMCP 2.12+**: Decorator-based MCP server framework
+- **aiohttp 3.12+**: Async HTTP client for qBittorrent Web API
+- **Pydantic v2**: Data validation and settings management
+- **uv**: Fast Python package manager
+
+## Architecture
+
+### Components Implemented
+```
+src/mcp_qbittorrent/
+   config.py                         ✅ Pydantic settings with env support (38 lines)
+   clients/
+      qbittorrent_client.py         ✅ Full async API client (251 lines)
+   models/
+      schemas.py                    ✅ Pydantic models for responses (129 lines)
+   server.py                        ⏳ FastMCP entry point (0 lines - not started)
+   tools/
+       qbittorrent_tools.py         ⏳ MCP tool decorators (0 lines - not started)
+tests/
+   test_qbittorrent_client.py       ✅ Unit tests (17/17 passing)
+   test_integration.py              ⏳ Integration tests (5 tests)
+   test_qbittorrent_tools.py        ⏳ MCP tools tests (pending)
+```
+
+### qBittorrent API Client Features
+
+The `QBittorrentClient` class provides async methods for:
+
+1. **list_torrents(filter, category)** - List torrents with optional filtering
+2. **get_torrent_info(hash)** - Get detailed torrent properties and files
+3. **add_torrent(urls, savepath, category, paused)** - Add torrents by URL/magnet
+4. **control_torrent(hashes, action, delete_files)** - Pause/resume/delete torrents
+5. **search_torrents(query, plugins, category, limit)** - Search via qBittorrent plugins
+6. **get_preferences()** - Get qBittorrent application settings
+
+## Configuration
+
+**REQUIRED**: All qBittorrent connection settings must be configured via environment variables before running the server.
+
+Configuration uses `QB_MCP_` prefix:
+
+```bash
+# .env file (REQUIRED)
+QB_MCP_QBITTORRENT_URL=http://localhost:15080    # Required: qBittorrent Web UI URL
+QB_MCP_QBITTORRENT_USERNAME=admin                # Required: Web UI username
+QB_MCP_QBITTORRENT_PASSWORD=your_password        # Required: Web UI password
+QB_MCP_REQUEST_TIMEOUT=30                        # Optional: Request timeout (default: 30s)
+```
+
+**Note**: The server will fail to start if required settings are missing. Copy `.env.example` to `.env` and configure your qBittorrent credentials.
+
+Settings are managed in `src/mcp_qbittorrent/config.py` using Pydantic BaseSettings with strict validation.
+
+## Development Setup
+
+### Prerequisites
+
+- Python 3.11+
+- uv package manager
+- Running qBittorrent instance with Web UI enabled
+- qBittorrent Web UI credentials (username and password)
+
+### Installation
+
+```bash
+# Clone repository
+git clone <repo-url>
+cd mcp-qbittorrent
+
+# Install dependencies with uv
+uv sync
+
+# Configure environment (REQUIRED)
+cp .env.example .env
+# Edit .env with your qBittorrent credentials:
+#   - QB_MCP_QBITTORRENT_URL: Your qBittorrent Web UI URL
+#   - QB_MCP_QBITTORRENT_USERNAME: Your Web UI username
+#   - QB_MCP_QBITTORRENT_PASSWORD: Your Web UI password
+```
+
+**Important**: The application will not start without valid `.env` configuration.
+
+### Testing the Client
+
+The project includes a test script and comprehensive unit tests:
+
+```bash
+# Run client test script against your qBittorrent instance
+uv run python main.py
+
+# Run unit tests (17 tests, all passing)
+uv run pytest tests/test_qbittorrent_client.py -v
+
+# Run all tests including integration tests
+uv run pytest -v
+```
+
+Expected output from main.py:
+```
+INFO:__main__:Connecting to qBittorrent at http://your-qbittorrent-url:15080
+INFO:src.mcp_qbittorrent.clients.qbittorrent_client:Successfully authenticated with qBittorrent
+INFO:__main__:Number of torrents: X
+INFO:__main__:Default save path: /downloads
+INFO:__main__:✅ Client test completed successfully!
+```
+
+**Test Coverage**: 17/17 unit tests passing covering authentication, torrent operations, search, preferences, and error handling.
+
+**Troubleshooting**: If you see `ValidationError`, check that all required environment variables are set in `.env`. If you see `AuthenticationError`, verify your qBittorrent credentials and URL.
+
+## Project Structure
+
+```
+mcp-qbittorrent/
+   pyproject.toml              # uv project configuration ✅
+   uv.lock                     # Locked dependencies ✅
+   .env                        # Environment configuration ✅
+   main.py                     # Client test script ✅
+   src/
+      mcp_qbittorrent/
+          __init__.py
+          config.py           # Pydantic settings ✅ (38 lines)
+          server.py           # FastMCP entry point ⏳ (0 lines)
+          clients/
+             __init__.py
+             qbittorrent_client.py  # API client ✅ (251 lines)
+          models/
+             __init__.py
+             schemas.py      # Pydantic models ✅ (129 lines)
+          tools/
+              __init__.py
+              qbittorrent_tools.py  # MCP tools ⏳ (0 lines)
+   tests/
+      __init__.py
+      fixtures.py
+      test_qbittorrent_client.py    # Unit tests ✅ (17/17 passing)
+      test_integration.py           # Integration tests (5 tests)
+      test_qbittorrent_tools.py     # MCP tools tests (pending)
+   CLAUDE.md                   # Project instructions for Claude Code
+   qbittorrent-mcp-server-plan.md   # Detailed phase tracking
+   README.md                   # This file
+```
+
+## Planned MCP Tools
+
+The following MCP tools will be implemented in Phase 3:
+
+1. **qb_search_torrents** - Search for torrents through qBittorrent's search plugins
+2. **qb_add_torrent** - Add torrent by URL or magnet link
+3. **qb_list_torrents** - List all torrents with status
+4. **qb_torrent_info** - Get detailed info for specific torrent
+5. **qb_control_torrent** - Control torrent (pause/resume/delete)
+6. **qb_get_preferences** - Get qBittorrent settings
+
+## Error Handling
+
+The client implements comprehensive error handling:
+
+- **AuthenticationError**: Raised when login fails or token expires
+- **APIError**: Raised when API requests fail
+- **QBittorrentClientError**: Base exception for all client errors
+
+All methods include proper timeout handling, connection error recovery, and informative error messages.
+
+## Next Steps
+
+### Phase 3: MCP Tools Implementation
+
+1. Implement `server.py` with FastMCP initialization
+2. Create MCP tool decorators in `qbittorrent_tools.py` for all 6 operations
+3. Add tool parameter validation and error handling
+4. Test tools locally via MCP protocol
+5. Run test suite: `uv run pytest`
+
+### Phase 4: Containerization
+
+1. Create `Dockerfile` for MCP server
+2. Create `docker-compose.yml` for standalone deployment
+3. Build and test container communication with qBittorrent
+
+### Phase 5: Integration
+
+1. Update `build/docker-compose.yml` to include mcp-qbittorrent service
+2. Configure networking between containers
+3. Test full stack orchestration
+
+## Security Considerations
+
+-  Credentials via environment variables only (never hardcoded)
+-  Input validation with Pydantic models
+-  Proper authentication token management
+-  Timeout handling to prevent hanging requests
+- � Container isolation (pending Phase 4)
+- � Network isolation on internal docker network (pending Phase 4)
+
+## Dependencies
+
+Core dependencies (from pyproject.toml):
+- **aiohttp** >= 3.12.15 - Async HTTP client
+- **fastmcp** >= 2.12.4 - MCP server framework
+- **pydantic** >= 2.11.9 - Data validation
+- **pydantic-settings** >= 2.11.0 - Settings management
+
+Dev dependencies:
+- **pytest** >= 8.0.0 - Testing framework
+- **pytest-asyncio** >= 0.23.0 - Async test support
+- **pytest-cov** >= 4.1.0 - Coverage reporting
+- **ruff** >= 0.3.0 - Linting
+- **mypy** >= 1.8.0 - Type checking
+
+## References
+
+- [FastMCP Documentation](https://github.com/jlowin/fastmcp)
+- [qBittorrent Web API](https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-4.1))
+- [MCP Protocol Specification](https://spec.modelcontextprotocol.io/)
+
+## License
+
+See LICENSE file for details.
+
+## Contributing
+
+See CLAUDE.md for development guidelines and architecture decisions.

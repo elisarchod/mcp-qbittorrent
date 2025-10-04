@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a FastMCP-based Model Context Protocol server that provides direct interaction with qBittorrent's Web API. The MCP server runs as a container alongside qbittorrent in a docker compose stack.
 
-**CRITICAL**: This project is initialized and deployed via Docker Compose from the start. All development and production deployment use containerized workflows. Do NOT develop locally first - create Dockerfile and docker-compose.yml BEFORE writing Python code.
+**Current Status**: Phase 2 complete - Core qBittorrent API client fully implemented and tested (17/17 tests passing). Phase 3 not started (server.py and qbittorrent_tools.py files created but empty).
 
 ## Technology Stack
 
@@ -20,27 +20,49 @@ This is a FastMCP-based Model Context Protocol server that provides direct inter
 
 ```
 mcp-qbittorrent/
-├── Dockerfile                  # MCP server container (CREATE FIRST)
-├── docker-compose.yml          # Standalone deployment config (CREATE FIRST)
-├── pyproject.toml              # uv project config
+├── Dockerfile                  # MCP server container (Phase 4 - pending)
+├── docker-compose.yml          # Standalone deployment config (Phase 4 - pending)
+├── pyproject.toml              # uv project config ✅
+├── main.py                     # Client test script ✅
 ├── src/
 │   └── mcp_qbittorrent/
-│       ├── server.py           # FastMCP server entry point
-│       ├── config.py           # Pydantic settings
+│       ├── server.py           # FastMCP server entry point ⏳ (0 lines - not started)
+│       ├── config.py           # Pydantic settings ✅ (38 lines)
 │       ├── tools/
-│       │   └── qbittorrent_tools.py   # qBittorrent API tools
+│       │   └── qbittorrent_tools.py   # qBittorrent API tools ⏳ (0 lines - not started)
 │       ├── clients/
-│       │   └── qbittorrent_client.py  # qBittorrent API client
+│       │   └── qbittorrent_client.py  # qBittorrent API client ✅ (251 lines)
 │       └── models/
-│           └── schemas.py      # Pydantic models
+│           └── schemas.py      # Pydantic models ✅ (129 lines)
 └── tests/
-    ├── test_qbittorrent_tools.py
+    ├── test_qbittorrent_client.py  # Unit tests ✅ (17/17 passing)
+    ├── test_integration.py         # Integration tests (5 tests)
+    ├── test_qbittorrent_tools.py   # MCP tools tests (pending)
     └── fixtures.py
 ```
 
 ## Development Commands
 
-### Container-based Development (PRIMARY METHOD)
+### Local Development (Current Phase)
+
+```bash
+# Test qBittorrent client
+uv run python main.py
+
+# Run tests
+uv run pytest
+
+# Run linting
+uv run ruff check .
+
+# Run type checking
+uv run mypy src/
+
+# Run MCP server (once implemented)
+uv run python -m mcp_qbittorrent.server
+```
+
+### Container-based Development (Phase 4+)
 
 ```bash
 # Build container
@@ -60,22 +82,6 @@ docker-compose logs -f mcp-qbittorrent
 
 # Full stack with existing services
 cd build && docker-compose up -d
-```
-
-### Local Development (ONLY for quick testing)
-
-```bash
-# Initialize uv project
-uv init mcp-qbittorrent
-
-# Add dependencies
-uv add fastmcp aiohttp pydantic pydantic-settings
-
-# Run tests
-uv run pytest
-
-# Run server
-uv run python -m mcp_qbittorrent.server
 ```
 
 ## Architecture
@@ -100,9 +106,9 @@ Configuration is managed via environment variables with `QB_MCP_` prefix:
 
 Settings are defined in `src/mcp_qbittorrent/config.py` using Pydantic BaseSettings.
 
-## MCP Tools
+## MCP Tools (Phase 3 - To Be Implemented)
 
-The server exposes 6 qBittorrent Web API tools:
+The server will expose 6 qBittorrent Web API tools:
 1. `qb_search_torrents`: Search for torrents through qBittorrent's search plugins
 2. `qb_add_torrent`: Add torrent by URL or magnet link
 3. `qb_list_torrents`: List all torrents with status
@@ -110,7 +116,22 @@ The server exposes 6 qBittorrent Web API tools:
 5. `qb_control_torrent`: Control torrent (pause/resume/delete)
 6. `qb_get_preferences`: Get qBittorrent settings
 
-All tools are implemented in `src/mcp_qbittorrent/tools/qbittorrent_tools.py` using FastMCP decorators.
+Tools will be implemented in `src/mcp_qbittorrent/tools/qbittorrent_tools.py` using FastMCP decorators.
+
+### qBittorrent Client (✅ Implemented)
+
+The `QBittorrentClient` class in `clients/qbittorrent_client.py` provides:
+- Authentication with qBittorrent Web API (session cookie management)
+- Async context manager support (`async with`)
+- 6 core methods mapped to the planned MCP tools:
+  - `list_torrents(filter, category)` - for qb_list_torrents
+  - `get_torrent_info(hash)` - for qb_torrent_info
+  - `add_torrent(urls, savepath, category, paused)` - for qb_add_torrent
+  - `control_torrent(hashes, action, delete_files)` - for qb_control_torrent
+  - `search_torrents(query, plugins, category, limit)` - for qb_search_torrents
+  - `get_preferences()` - for qb_get_preferences
+- Comprehensive error handling (AuthenticationError, APIError)
+- Proper timeout handling
 
 ## Implementation Pattern
 
@@ -126,11 +147,6 @@ if __name__ == "__main__":
     mcp.run()
 ```
 
-### qBittorrent Client (clients/qbittorrent_client.py)
-- Handles authentication with qBittorrent Web API
-- Manages session cookies (SID)
-- Provides async methods for all API operations
-- Uses aiohttp for HTTP requests
 
 ### Testing Strategy
 - Unit tests: Mock qBittorrent API responses
@@ -139,12 +155,47 @@ if __name__ == "__main__":
 
 ## Development Workflow
 
-### Phase Order (MUST FOLLOW)
-1. **Project Setup**: Create Dockerfile and docker-compose.yml FIRST, then initialize uv project
-2. **Core Implementation**: Implement in container, test via `docker-compose restart`
-3. **Testing**: Run tests via `docker-compose exec`
-4. **Integration**: Update `build/docker-compose.yml` to include mcp-qbittorrent service
-5. **Documentation**: Update README.md with MCP server info
+### Phase Order (Actual Workflow)
+
+**✅ Phase 1: Project Setup (Complete)**
+- uv project initialized with pyproject.toml
+- Dependencies added: fastmcp, aiohttp, pydantic, pydantic-settings
+- Project structure created with src/ and tests/ directories
+- Feature branch created: `feature/mcp-qbittorrent-server`
+
+**✅ Phase 2: Core Client Implementation (Complete)**
+- config.py: Pydantic settings with environment variable support (38 lines)
+- qbittorrent_client.py: Full async API client implementation (251 lines)
+- schemas.py: Pydantic models for all API responses (129 lines)
+- main.py: Test script for validating client functionality
+- test_qbittorrent_client.py: Comprehensive unit tests (17/17 passing)
+- Successfully tested against local qBittorrent instance (http://localhost:15080)
+
+**⏳ Phase 3: MCP Tools Implementation (Next - Not Started)**
+1. Implement `server.py` with FastMCP initialization (currently 0 lines)
+2. Create FastMCP tool decorators in `qbittorrent_tools.py` for all 6 operations (currently 0 lines)
+3. Wire up tools to use QBittorrentClient methods
+4. Add tool parameter validation and descriptions
+5. Test tools locally via MCP protocol: `uv run python -m mcp_qbittorrent.server`
+6. Run test suite: `uv run pytest` (client tests passing: 17/17)
+
+**⏳ Phase 4: Containerization (After Phase 3)**
+1. Create `Dockerfile` for MCP server (use python:3.11-slim base)
+2. Create `docker-compose.yml` for standalone deployment
+3. Configure environment variables for container
+4. Build and test: `docker-compose build && docker-compose up`
+5. Verify container-to-container communication with qBittorrent
+
+**⏳ Phase 5: Integration (After Phase 4)**
+1. Update `build/docker-compose.yml` to include mcp-qbittorrent service
+2. Configure networking between mcp-qbittorrent and qbittorrent containers
+3. Test full stack: `cd build && docker-compose up -d`
+4. Verify MCP server accessible via Claude Desktop
+
+**✅ Phase 6: Documentation (Updated)**
+- README.md: Updated with current project status and usage
+- CLAUDE.md: Updated with actual workflow and phase tracking
+- qbittorrent-mcp-server-plan.md: Detailed phase tracking with test results
 
 ### Branching
 Use feature branch: `feature/mcp-qbittorrent-server`
