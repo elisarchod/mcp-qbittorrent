@@ -2,7 +2,7 @@
 
 import logging
 from fastmcp import FastMCP
-from mcp_qbittorrent.config import get_settings
+from mcp_qbittorrent.config import settings
 from mcp_qbittorrent.clients.qbittorrent_client import QBittorrentClient
 from mcp_qbittorrent.tools.qbittorrent_tools import register_tools
 
@@ -15,9 +15,6 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastMCP server
 mcp = FastMCP("qbittorrent-manager")
-
-# Get settings
-settings = get_settings()
 
 # Create global qBittorrent client instance
 qb_client = QBittorrentClient(

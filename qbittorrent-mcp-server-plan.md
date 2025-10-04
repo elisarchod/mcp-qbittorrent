@@ -2,7 +2,7 @@
 
 ## Project Status
 
-**Current Phase**: Phase 2 Complete ✅ | Phase 3 Not Started ⏳
+**Current Phase**: Phase 3 Complete ✅ | Phase 4 Next ⏳
 
 ### Completed Phases
 
@@ -11,25 +11,32 @@
   - Project structure created
 
 - ✅ **Phase 2**: Core client implementation complete
-  - `config.py`: Settings with required environment variables (no defaults)
-  - `qbittorrent_client.py`: Full async API client with auth (251 lines)
-  - `schemas.py`: Pydantic models for all API responses (129 lines)
+  - `config.py`: Settings with required environment variables (38 lines)
+  - `qbittorrent_client.py`: Simplified async API client (120 lines, reduced from 198)
+  - `schemas.py`: Pydantic models + MCP response models (128 lines)
   - `main.py`: Test script validates client functionality
   - Successfully tested against qBittorrent instance
 
+- ✅ **Phase 3**: MCP Tools Implementation Complete (2025 Best Practices)
+  - `server.py`: FastMCP server entry point (37 lines)
+  - `qbittorrent_tools.py`: 6 MCP tools with enhanced type annotations (322 lines)
+  - All tools use Pydantic Field annotations and Literal types
+  - Structured response models for better LLM accuracy
+  - Input validation with regex patterns and constraints
+  - Enhanced docstrings with use case examples
+  - 22/22 tests passing ✅
+
 ### Current Phase
 
-- ⏳ **Phase 3**: MCP Tools Implementation (Next - Not Started)
-  - Files created but empty (0 lines each):
-    - `server.py` - needs FastMCP initialization
-    - `qbittorrent_tools.py` - needs tool decorators
-  - All 17 unit tests for client passing
+- ⏳ **Phase 4**: Containerization (Next - Not Started)
+  - Create Dockerfile for MCP server
+  - Create docker-compose.yml for standalone deployment
+  - Build and test container
 
 ### Pending Phases
 
-- ⏳ **Phase 4**: Containerization
 - ⏳ **Phase 5**: Integration with docker-compose stack
-- ✅ **Phase 6**: Documentation updated (README.md, CLAUDE.md)
+- ✅ **Phase 6**: Documentation updated (README.md, CLAUDE.md, plan.md)
 
 ## Overview
 
@@ -292,33 +299,45 @@ services:
 
 **Files Implemented**:
 - `config.py`: 38 lines
-- `qbittorrent_client.py`: 251 lines
-- `schemas.py`: 129 lines
-- `test_qbittorrent_client.py`: 17 passing unit tests
-- Total: 418 lines of production code
+- `qbittorrent_client.py`: 120 lines (simplified from 198)
+- `schemas.py`: 128 lines (added MCP response models)
+- `test_qbittorrent_client.py`: 22 passing tests
+- Total: 286 lines of production code
 
-### ⏳ Phase 3: MCP Tools Implementation (NEXT)
-**Status**: Not started (files created but empty - 0 lines) | **Priority**: High
+### ✅ Phase 3: MCP Tools Implementation (COMPLETE)
+**Status**: Complete ✅ | **Lines of Code**: 359 total | **Tests**: 22/22 passing | **MCP Best Practices**: 2025
 
-**Planned Tasks**:
-1. ⏳ Create FastMCP server entry point (`server.py`):
-   - Initialize FastMCP with name "qbittorrent-manager"
-   - Import and register tools
-   - Add main entry point
-2. ⏳ Implement FastMCP tool decorators (`qbittorrent_tools.py`):
-   - `@mcp.tool()` decorator for each of 6 operations
-   - Parameter validation using tool schemas
-   - Wire up to QBittorrentClient methods
-   - Add comprehensive docstrings for tool descriptions
-3. ⏳ Test tools locally:
-   - Run server: `uv run python -m mcp_qbittorrent.server`
-   - Test each tool via MCP protocol
-   - Validate error handling and edge cases
-4. ⏳ Run test suite:
-   - Create unit tests with mocked qBittorrent responses
-   - Add integration tests (marked with @pytest.mark.integration)
-   - Run: `uv run pytest`
-   - Verify test coverage
+**Completed Tasks**:
+1. ✅ Created FastMCP server entry point (`server.py`): 37 lines
+   - Initialized FastMCP with name "qbittorrent-manager"
+   - Imported and registered tools
+   - Added main entry point
+2. ✅ Implemented FastMCP tool decorators (`qbittorrent_tools.py`): 322 lines
+   - All 6 tools with `@mcp.tool()` decorator
+   - **Enhanced with 2025 MCP Best Practices:**
+     - Pydantic `Annotated[Type, Field(...)]` for all parameters
+     - `Literal` types for enum values (filter states, actions)
+     - Regex patterns for validation (hash, URL)
+     - Min/max length constraints
+     - Detailed Field descriptions for LLM understanding
+   - Structured Pydantic response models (not generic dicts)
+   - Enhanced docstrings with use case examples
+   - Better error messages with troubleshooting hints
+3. ✅ Added MCP Response Models to `schemas.py`:
+   - `TorrentListResponse`, `TorrentInfoResponse`, `TorrentActionResponse`
+   - `SearchResponse`, `PreferencesResponse`
+   - `TorrentFilter` and `TorrentAction` Literal types
+4. ✅ Tested tools:
+   - All 22 tests passing (17 client + 5 integration)
+   - Verified type annotations and validation
+   - Confirmed structured responses
+
+**Key Improvements for LLM Accuracy**:
+- Input validation prevents invalid parameters
+- Literal types constrain values to valid options only
+- Structured returns help LLM parse responses
+- Enhanced descriptions explain when to use each tool
+- Examples in docstrings guide LLM usage
 
 **Dependencies**: QBittorrentClient (✅ complete)
 
