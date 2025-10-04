@@ -23,85 +23,115 @@ A FastMCP-based server implementing the **Model Context Protocol (MCP)** for sea
 
 ### System Design
 
-```
-┌─────────────────┐
-│  Claude/LLM     │  Natural language: "Show me all active downloads"
-└────────┬────────┘
-         │ MCP Protocol (JSON-RPC)
-         ▼
-┌─────────────────────────────────────────────┐
-│  FastMCP Server (src/mcp_qbittorrent/)      │
-│                                             │
-│  ┌──────────────────────────────────────┐  │
-│  │ 6 MCP Tools (qbittorrent_tools.py)   │  │  322 lines
-│  │ • Literal types (no hallucinations)  │  │
-│  │ • Regex validation (hash, URL)       │  │
-│  │ • Structured Pydantic responses      │  │
-│  └──────────────┬───────────────────────┘  │
-│                 │                           │
-│  ┌──────────────▼───────────────────────┐  │
-│  │ QBittorrent Client (async)           │  │  120 lines
-│  │ • Session management (TCP reuse)     │  │
-│  │ • Parallel requests (asyncio.gather) │  │
-│  │ • Custom exceptions (Auth, API)      │  │
-│  └──────────────┬───────────────────────┘  │
-└─────────────────┼───────────────────────────┘
-                  │ HTTP (qBittorrent Web API v2)
-                  ▼
-         ┌─────────────────┐
-         │  qBittorrent    │  Manages torrents
-         └─────────────────┘
+```mermaid
+graph TB
+    User["Claude/LLM<br/>Natural language: 'Show me all active downloads'"]
+
+    subgraph FastMCP["FastMCP Server (src/mcp_qbittorrent/)"]
+        Tools["6 MCP Tools (qbittorrent_tools.py)<br/>• Literal types (no hallucinations)<br/>• Regex validation (hash, URL)<br/>• Structured Pydantic responses"]
+        Client["QBittorrent Client (async)<br/>• Session management (TCP reuse)<br/>• Parallel requests (asyncio.gather)<br/>• Custom exceptions (Auth, API)"]
+
+        Tools --> Client
+    end
+
+    QB["qBittorrent<br/>Manages torrents"]
+
+    User -->|MCP Protocol<br/>JSON-RPC| Tools
+    Client -->|HTTP<br/>Web API v2| QB
 ```
 
 ### Component Breakdown
 
-| Component | Lines | Responsibility |
-|-----------|-------|----------------|
-| `server.py` | 34 | FastMCP initialization & tool registration |
-| `config.py` | 38 | Environment-based settings with validation |
-| `qbittorrent_client.py` | 120 | Async HTTP client with session management |
-| `qbittorrent_tools.py` | 322 | 6 MCP tools with enhanced annotations |
-| `models/schemas.py` | 128 | Structured Pydantic response models |
+| Component | Responsibility |
+|-----------|----------------|
+| `server.py` | FastMCP initialization & tool registration |
+| `config.py` | Environment-based settings with validation |
+| `qbittorrent_client.py` | Async HTTP client with session management |
+| `qbittorrent_tools.py` | 6 MCP tools with enhanced annotations |
+| `models/schemas.py` | Structured Pydantic response models |
 
-**Total: 642 production lines** | **Tests: 716 lines (111% ratio)**
+## MCP Tools & Architecture
 
-## MCP Tools
+### Tool Overview
 
-Six production-ready tools implementing **2025 MCP Best Practices** for optimal LLM accuracy:
+Six production-ready tools enabling natural language torrent management:
 
-| Tool | Function | MCP Enhancement |
-|------|----------|-----------------|
-| `list_downloads` | List torrents with filters | `Literal[...]` for state enums |
-| `get_download_info` | Detailed torrent info | Regex pattern for hash validation |
-| `add_download` | Add torrent by URL/magnet | URL pattern validation |
-| `control_download` | Pause/resume/delete | `Literal[...]` for action enums |
-| `search_downloads` | Search via plugins | Query constraints (min/max length) |
-| `get_settings` | Get application preferences | Structured response model |
+| Tool | Function | Input Validation |
+|------|----------|------------------|
+| `qb_list_torrents` | List torrents with filters | `Literal` types for state enums |
+| `qb_torrent_info` | Detailed torrent info | Regex pattern for 40-char hash |
+| `qb_add_torrent` | Add torrent by URL/magnet | URL/magnet pattern validation |
+| `qb_control_torrent` | Pause/resume/delete | `Literal` types for actions |
+| `qb_search_torrents` | Search via plugins | Query length constraints |
+| `qb_get_preferences` | Get application settings | Structured response model |
 
-**Example: Enhanced Type Annotation**
+### MCP Best Practices Implementation
+
+This implementation follows **6 core MCP principles** for optimal LLM reasoning:
+
+#### 1. **Type Constraints** - Prevent LLM Hallucinations
 ```python
-async def control_download(
-    hash: Annotated[
-        str,
-        Field(
-            description="40-character SHA-1 hash",
-            pattern=r"^[a-fA-F0-9]{40}$",
-            min_length=40,
-            max_length=40
-        )
-    ],
-    action: Annotated[
-        Literal["pause", "resume", "delete"],
-        Field(description="Action: pause (stop), resume (start), delete (remove)")
-    ]
-) -> TorrentActionResponse:
+action: Annotated[
+    Literal["pause", "resume", "delete"],
+    Field(description="Action: pause (stop), resume (start), delete (remove)")
+]
 ```
+**Why**: `Literal` types constrain LLM to valid enum values, preventing invalid actions like "stop" or "cancel"
 
-**Why This Matters:**
-- LLM receives explicit constraints (Literal types prevent hallucinations)
-- Regex validation catches errors before API calls
-- Structured responses enable reliable parsing
-- Natural language descriptions guide LLM tool selection
+#### 2. **Regex Validation** - Catch Invalid Inputs Early
+```python
+hash: Annotated[
+    str,
+    Field(
+        pattern=r"^[a-fA-F0-9]{40}$",
+        min_length=40,
+        max_length=40
+    )
+]
+```
+**Why**: Validates torrent hash format before making API calls, reducing error round-trips
+
+#### 3. **Structured Responses** - Enable Reliable Parsing
+```python
+class TorrentActionResponse(BaseModel):
+    success: bool
+    message: Optional[str]
+    error: Optional[str]
+```
+**Why**: Consistent response structure allows LLM to reliably extract success/failure and details
+
+#### 4. **Natural Language Docstrings** - Guide Tool Selection
+```python
+"""List all torrents with optional filtering.
+
+Example uses:
+- "Show me all my torrents"
+- "What's currently downloading?"
+- "List completed torrents"
+"""
+```
+**Why**: LLM matches user intent to correct tool using natural language examples
+
+#### 5. **Input Constraints** - Validate Ranges and Lengths
+```python
+limit: Annotated[
+    int,
+    Field(ge=1, le=500, description="Maximum number of results")
+]
+```
+**Why**: Prevents resource exhaustion from unbounded queries
+
+#### 6. **Enhanced Descriptions** - Provide Context for Parameters
+```python
+delete_files: Annotated[
+    bool,
+    Field(
+        False,
+        description="Only for 'delete' action: If True, also delete downloaded files from disk"
+    )
+]
+```
+**Why**: LLM understands parameter implications and can warn users about destructive operations
 
 ## Quick Start
 
@@ -164,17 +194,17 @@ Environment variables with `QB_MCP_` prefix (managed via Pydantic BaseSettings):
 ## Project Structure
 
 ```
-src/mcp_qbittorrent/          # 642 production lines
-├── server.py                 # FastMCP initialization (34 lines)
-├── config.py                 # Environment settings (38 lines)
+src/mcp_qbittorrent/
+├── server.py                 # FastMCP initialization
+├── config.py                 # Environment settings
 ├── clients/
-│   └── qbittorrent_client.py # Async API client (120 lines)
+│   └── qbittorrent_client.py # Async API client
 ├── models/
-│   └── schemas.py            # Pydantic response models (128 lines)
+│   └── schemas.py            # Pydantic response models
 └── tools/
-    └── qbittorrent_tools.py  # 6 MCP tools (322 lines)
+    └── qbittorrent_tools.py  # 6 MCP tools
 
-tests/                        # 716 test lines
+tests/
 ├── unit/
 │   └── test_client.py        # Unit tests with mocks
 ├── integration/
@@ -183,8 +213,6 @@ tests/                        # 716 test lines
 ├── test_integration.py
 ├── fixtures.py               # Test fixtures and mocks
 └── conftest.py               # pytest configuration
-
-**30 tests passing**
 ```
 
 ## Usage Examples
@@ -228,7 +256,7 @@ User: "What's my download speed limit?"
 **Completed (Phases 1-3):**
 - ✅ Async Python client with session management
 - ✅ 6 MCP tools (Literal types, regex validation, structured responses)
-- ✅ Comprehensive testing: 30/30 passing, 111% test-to-code ratio
+- ✅ Comprehensive testing suite
 - ✅ Clean architecture: Single responsibility, DRY principles
 
 **Planned (Phases 4-5):**
@@ -251,11 +279,11 @@ User: "What's my download speed limit?"
 - **Environment-Based Config**: 12-factor app principles enable different configurations per deployment (local/container/production)
 - **Custom Exception Hierarchy**: `AuthenticationError` vs `APIError` enables precise error handling and meaningful user feedback
 
-**Code Quality Metrics:**
-- 642 production lines, 716 test lines (111% ratio)
+**Code Quality:**
 - Single Responsibility Principle: Each function averages 15-20 lines
 - DRY principles: Unified `_request()` method for all HTTP operations
 - Modern Python: f-strings, comprehensions, context managers (`async with`)
+- Comprehensive test coverage (unit + integration)
 
 ## Security & Best Practices
 
