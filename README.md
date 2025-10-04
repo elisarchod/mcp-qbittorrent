@@ -83,6 +83,7 @@ action: Annotated[
 hash: Annotated[
     str,
     Field(
+        description="The 40-character SHA-1 hash of the torrent to control",
         pattern=r"^[a-fA-F0-9]{40}$",
         min_length=40,
         max_length=40
@@ -116,7 +117,12 @@ Example uses:
 ```python
 limit: Annotated[
     int,
-    Field(ge=1, le=500, description="Maximum number of results")
+    Field(
+        100,
+        description="Maximum number of results to return",
+        ge=1,
+        le=500
+    )
 ]
 ```
 **Why**: Prevents resource exhaustion from unbounded queries
