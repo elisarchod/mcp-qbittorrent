@@ -1,149 +1,56 @@
 # MCP qBittorrent Server
 
-> Production-grade Model Context Protocol server enabling AI assistants to manage qBittorrent through natural language
+> AI-powered torrent management through natural language commands
 
-## Overview
+## What This Does
 
-A FastMCP-based server implementing the **Model Context Protocol (MCP)** for seamless qBittorrent API integration with Large Language Models. Built with modern Python async/await patterns, comprehensive type safety, and 2025 MCP best practices for maximum LLM reasoning accuracy.
+This server bridges the gap between AI assistants (like Claude) and qBittorrent, allowing you to manage torrents using natural language instead of clicking through interfaces.
 
-**LLM Tool Use Optimization:**
-- Structured Pydantic responses enable reliable parsing by language models
-- Literal types constrain LLM hallucinations by enforcing valid enum values
-- Regex pattern validation prevents invalid inputs before API calls
-- Enhanced docstrings with natural language examples guide LLM behavior
+**Use Cases:**
+- **Voice/Text Control**: "Pause all downloads" or "Show me what's seeding" - no more manual clicking
+- **Bulk Operations**: "Delete all completed torrents" or "Resume everything" - manage hundreds of torrents instantly  
+- **Smart Search**: "Find Ubuntu 24.04 torrents" - discover content without browsing sites
+- **Status Monitoring**: "What's my download speed?" - get instant insights into your torrent activity
+- **Automation Ready**: Integrates with AI workflows for automated content management
 
-**Production-Ready Infrastructure:**
-- Async/await architecture for concurrent request handling
-- Parallel API calls with `asyncio.gather()` reducing latency by ~50%
-- Environment-based configuration following 12-factor app principles
-- Comprehensive error handling with structured responses
+**Real-World :**
+- Content creators managing large media libraries
+- IT administrators handling software distributions
+- Home users wanting hands-free torrent management
+- Developers needing automated content delivery
 
 
-## Architecture
+## How It Works
 
-### System Design
+The server acts as a translator between AI assistants and qBittorrent:
 
-```mermaid
-graph TB
-    User["Claude/LLM<br/>Natural language: 'Show me all active downloads'"]
+1. **AI Assistant** sends natural language commands ("Show me active downloads")
+2. **MCP Server** converts commands to qBittorrent API calls
+3. **qBittorrent** executes the operations and returns data
+4. **MCP Server** formats responses for the AI assistant
 
-    subgraph FastMCP["FastMCP Server (src/mcp_qbittorrent/)"]
-        Tools["6 MCP Tools (qbittorrent_tools.py)<br/>• Literal types (no hallucinations)<br/>• Regex validation (hash, URL)<br/>• Structured Pydantic responses"]
-        Client["QBittorrent Client (async)<br/>• Session management (TCP reuse)<br/>• Parallel requests (asyncio.gather)<br/>• Custom exceptions (Auth, API)"]
+**Key Components:**
+- **Tools**: 6 specialized functions for torrent management
+- **Client**: Handles communication with qBittorrent Web API
+- **Models**: Structured data formats for reliable AI parsing
 
-        Tools --> Client
-    end
+## Available Commands
 
-    QB["qBittorrent<br/>Manages torrents"]
+The server provides 6 core functions for torrent management:
 
-    User -->|MCP Protocol<br/>JSON-RPC| Tools
-    Client -->|HTTP<br/>Web API v2| QB
-```
-
-### Component Breakdown
-
-| Component | Responsibility |
-|-----------|----------------|
-| `server.py` | FastMCP initialization & tool registration |
-| `config.py` | Environment-based settings with validation |
-| `qbittorrent_client.py` | Async HTTP client with session management |
-| `qbittorrent_tools.py` | 6 MCP tools with enhanced annotations |
-| `models/schemas.py` | Structured Pydantic response models |
-
-## MCP Tools & Architecture
-
-### Tool Overview
-
-Six production-ready tools enabling natural language torrent management:
-
-| Tool | Function | Input Validation |
-|------|----------|------------------|
-| `qb_list_torrents` | List torrents with filters | `Literal` types for state enums |
-| `qb_torrent_info` | Detailed torrent info | Regex pattern for 40-char hash |
-| `qb_add_torrent` | Add torrent by URL/magnet | URL/magnet pattern validation |
-| `qb_control_torrent` | Pause/resume/delete | `Literal` types for actions |
-| `qb_search_torrents` | Search via plugins | Query length constraints |
-| `qb_get_preferences` | Get application settings | Structured response model |
-
-### MCP Best Practices Implementation
-
-This implementation follows **6 core MCP principles** for optimal LLM reasoning:
-
-#### 1. **Type Constraints** - Prevent LLM Hallucinations
-```python
-action: Annotated[
-    Literal["pause", "resume", "delete"],
-    Field(description="Action: pause (stop), resume (start), delete (remove)")
-]
-```
-**Why**: `Literal` types constrain LLM to valid enum values, preventing invalid actions like "stop" or "cancel"
-
-#### 2. **Regex Validation** - Catch Invalid Inputs Early
-```python
-hash: Annotated[
-    str,
-    Field(
-        description="The 40-character SHA-1 hash of the torrent to control",
-        pattern=r"^[a-fA-F0-9]{40}$",
-        min_length=40,
-        max_length=40
-    )
-]
-```
-**Why**: Validates torrent hash format before making API calls, reducing error round-trips
-
-#### 3. **Structured Responses** - Enable Reliable Parsing
-```python
-class TorrentActionResponse(BaseModel):
-    success: bool
-    message: Optional[str]
-    error: Optional[str]
-```
-**Why**: Consistent response structure allows LLM to reliably extract success/failure and details
-
-#### 4. **Natural Language Docstrings** - Guide Tool Selection
-```python
-"""List all torrents with optional filtering.
-
-Example uses:
-- "Show me all my torrents"
-- "What's currently downloading?"
-- "List completed torrents"
-"""
-```
-**Why**: LLM matches user intent to correct tool using natural language examples
-
-#### 5. **Input Constraints** - Validate Ranges and Lengths
-```python
-limit: Annotated[
-    int,
-    Field(
-        100,
-        description="Maximum number of results to return",
-        ge=1,
-        le=500
-    )
-]
-```
-**Why**: Prevents resource exhaustion from unbounded queries
-
-#### 6. **Enhanced Descriptions** - Provide Context for Parameters
-```python
-delete_files: Annotated[
-    bool,
-    Field(
-        False,
-        description="Only for 'delete' action: If True, also delete downloaded files from disk"
-    )
-]
-```
-**Why**: LLM understands parameter implications and can warn users about destructive operations
+| Command | What It Does | Example |
+|---------|--------------|---------|
+| `list_downloads` | Show torrents with optional filtering | "Show me all active downloads" |
+| `get_download_info` | Get detailed info about a specific torrent | "Tell me about the Ubuntu torrent" |
+| `add_download` | Add new torrents from URL or magnet link | "Download this Ubuntu ISO" |
+| `control_download` | Pause, resume, or delete torrents | "Pause all downloads" |
+| `search_content` | Search for torrents using built-in plugins | "Find Ubuntu 24.04 torrents" |
+| `get_download_settings` | View qBittorrent settings | "What's my download speed limit?" |
 
 ## Quick Start
 
 ### Prerequisites
 - Python 3.11+
-- uv package manager ([installation](https://github.com/astral-sh/uv))
 - qBittorrent with Web UI enabled
 
 ### Installation
@@ -160,154 +67,131 @@ cp .env.example .env
 #   QB_MCP_QBITTORRENT_USERNAME=admin
 #   QB_MCP_QBITTORRENT_PASSWORD=your_password
 
-# 3. Verify installation
-uv run python main.py  # Should connect and list torrents
-```
-
-### Running
-
-```bash
-# Start MCP server
+# 3. Start the server
 uv run python -m mcp_qbittorrent.server
-
-# Run tests (30/30 passing)
-uv run pytest -v
-
-# Run tests with coverage
-uv run pytest --cov=src/mcp_qbittorrent --cov-report=term
-
-# Run only unit tests
-uv run pytest tests/unit/ -v
-
-# Run only integration tests (requires running qBittorrent)
-uv run pytest tests/integration/ -v
 ```
 
-### Configuration
+## Usage Examples
 
-Environment variables with `QB_MCP_` prefix (managed via Pydantic BaseSettings):
+Natural language interactions with your AI assistant:
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `QB_MCP_QBITTORRENT_URL` | ✅ | - | qBittorrent Web UI URL |
-| `QB_MCP_QBITTORRENT_USERNAME` | ✅ | - | Web UI username |
-| `QB_MCP_QBITTORRENT_PASSWORD` | ✅ | - | Web UI password |
-| `QB_MCP_REQUEST_TIMEOUT` | ❌ | 30 | HTTP request timeout (seconds) |
+```
+User: "Show me all active downloads"
+→ Lists torrents currently downloading
 
-**Note**: Server fails fast if required settings are missing (Pydantic validation)
+User: "Pause the Ubuntu torrent"
+→ Finds and pauses the Ubuntu torrent
 
+User: "Find Ubuntu 24.04 torrents"
+→ Searches for Ubuntu 24.04 torrents
+
+User: "What's my download speed limit?"
+→ Shows current speed settings
+```
 
 ## Project Structure
 
 ```
 src/mcp_qbittorrent/
-├── server.py                 # FastMCP initialization
-├── config.py                 # Environment settings
-├── clients/
-│   └── qbittorrent_client.py # Async API client
-├── models/
-│   └── schemas.py            # Pydantic response models
-└── tools/
-    └── qbittorrent_tools.py  # 6 MCP tools
-
-tests/
-├── unit/
-│   └── test_client.py        # Unit tests with mocks
-├── integration/
-│   └── test_qbittorrent_integration.py  # Real instance tests
-├── test_qbittorrent_client.py
-├── test_integration.py
-├── fixtures.py               # Test fixtures and mocks
-└── conftest.py               # pytest configuration
+├── server.py                 # Main server
+├── config.py                 # Settings
+├── clients/qbittorrent_client.py  # API client
+├── models/response.py        # Data models
+└── tools/qbittorrent_tools.py     # Command functions
 ```
 
-## Usage Examples
+## Technical Architecture
 
-Natural language interactions through Claude:
+### System Design
 
-```
-User: "Show me all active downloads"
-→ list_downloads(filter="downloading")
+```mermaid
+graph TB
+    User["AI Assistant<br/>Natural language commands"]
+    
+    subgraph MCP["MCP Server"]
+        Tools["6 MCP Tools<br/>• Type validation<br/>• Input sanitization<br/>• Structured responses"]
+        Client["qBittorrent Client<br/>• Async HTTP client<br/>• Session management<br/>• Error handling"]
+        Tools --> Client
 
-User: "Pause the Ubuntu torrent"
-→ get_download_info(query="Ubuntu")
-→ control_download(hash="abc123...", action="pause")
-
-User: "Find Ubuntu 24.04 torrents"
-→ search_downloads(query="Ubuntu 24.04", limit=10)
-
-User: "What's my download speed limit?"
-→ get_settings()
-```
-
-**Structured Response Example:**
-```json
-{
-  "success": true,
-  "count": 3,
-  "torrents": [
-    {
-      "hash": "abc123...",
-      "name": "ubuntu-24.04-desktop-amd64.iso",
-      "state": "downloading",
-      "progress": 0.45,
-      "dlspeed": 5242880
-    }
-  ]
-}
+    end
+    
+    QB["qBittorrent<br/>Web UI API"]
+    
+    User -->|MCP Protocol| Tools
+    Client -->|HTTP/JSON| QB
+    QB -->|API Response| Client
+    Client -->|Structured Data| Tools
+    Tools -->|JSON Response| User
 ```
 
-## Development Status
+### MCP Implementation
 
-**Completed (Phases 1-3):**
-- ✅ Async Python client with session management
-- ✅ 6 MCP tools (Literal types, regex validation, structured responses)
-- ✅ Comprehensive testing suite
-- ✅ Clean architecture: Single responsibility, DRY principles
+#### Type Safety & Validation
+- **Literal Types**: Constrain AI to valid enum values (prevents hallucinations)
+- **Regex Validation**: Pattern matching for torrent hashes and URLs
+- **Input Constraints**: Min/max length validation and range checks
+- **Structured Responses**: Consistent Pydantic models for reliable parsing
 
-**Planned (Phases 4-5):**
-- ⏳ Containerization: Dockerfile + docker-compose
-- ⏳ Integration: Multi-container deployment with existing services
-- ⏳ CI/CD: Automated testing pipeline
+#### Tool Design Principles
+- **Natural Language Docstrings**: Guide AI tool selection with examples
+- **Enhanced Descriptions**: Provide context for parameter implications
+- **Error Handling**: Structured error responses with actionable messages
+- **Async Architecture**: Non-blocking I/O for concurrent operations
 
-## Technical Highlights
+### Available Tools
 
-**MCP Protocol Implementation:**
-- **Type Constraints for LLM Accuracy**: `Literal` types prevent hallucinations by constraining valid enum values (filter states, torrent actions)
-- **Regex Validation**: Pattern matching for 40-char hex hashes and URLs catches invalid inputs before API calls
-- **Structured Responses**: Pydantic models ensure consistent, parseable outputs (success/error/data fields)
-- **Enhanced Docstrings**: Natural language examples guide LLM tool selection ("Show me all active downloads" → `list_downloads(filter="downloading")`)
+| Tool | Function | Validation | Example Use |
+|------|----------|------------|-------------|
+| `list_downloads` | List torrents with filters | `Literal` types for state enums | "Show me all active downloads" |
+| `get_download_info` | Detailed torrent information | Regex pattern for 40-char hash | "Tell me about the Ubuntu torrent" |
+| `add_download` | Add torrent by URL/magnet | URL/magnet pattern validation | "Download this Ubuntu ISO" |
+| `control_download` | Pause/resume/delete torrents | `Literal` types for actions | "Pause all downloads" |
+| `search_content` | Search via plugins | Query length constraints | "Find Ubuntu 24.04 torrents" |
+| `get_download_settings` | Get application settings | Structured response model | "What's my download speed limit?" |
 
-**Why These Design Choices Matter:**
-- **Async/Await Throughout**: Non-blocking I/O prevents thread blocking during network requests to qBittorrent API
-- **Parallel API Calls**: `asyncio.gather()` in `get_torrent_info()` fetches properties + files concurrently
-- **Session Management**: Persistent aiohttp session reuses TCP connections, avoiding costly handshakes per request
-- **Environment-Based Config**: 12-factor app principles enable different configurations per deployment (local/container/production)
-- **Custom Exception Hierarchy**: `AuthenticationError` vs `APIError` enables precise error handling and meaningful user feedback
+### Technical Highlights
 
-**Code Quality:**
-- Single Responsibility Principle: Each function averages 15-20 lines
-- DRY principles: Unified `_request()` method for all HTTP operations
-- Modern Python: f-strings, comprehensions, context managers (`async with`)
-- Comprehensive test coverage (unit + integration)
+**Performance:**
+- Async/await architecture for concurrent request handling
+- Session reuse with persistent TCP connections
+- Parallel API calls using `asyncio.gather()`
+- Connection pooling and timeout management
 
-## Security & Best Practices
+### Testing
 
-**Security:**
-- Environment-based credentials (never hardcoded) via Pydantic BaseSettings
-- Input validation on all MCP tool parameters (min/max length, regex patterns)
-- Session-based authentication with cookie management
-- Timeout handling prevents resource exhaustion from hanging requests
-- Container isolation planned (Phase 4)
+```bash
+# Run all tests
+uv run pytest -v
+
+# Run with coverage
+uv run pytest --cov=src/mcp_qbittorrent --cov-report=term
+
+# Run specific test suites
+uv run pytest tests/unit/ -v          # Unit tests with mocks
+uv run pytest tests/integration/ -v   # Integration tests (requires qBittorrent)
+```
+
+### Development Status
+
+**✅ Completed:**
+
+- Async Python client with session management
+- 6 MCP tools with comprehensive validation
+- Type-safe Pydantic response models
+- Comprehensive test suite (unit + integration)
+- Environment-based configuration
+- Error handling and logging
+
+**🔄 In Progress:**
+
+- Docker containerization
+- CI/CD pipeline setup
+- Performance optimization
+
 
 ## References
 
-- **MCP Protocol**: [spec.modelcontextprotocol.io](https://spec.modelcontextprotocol.io/)
-- **FastMCP**: [github.com/jlowin/fastmcp](https://github.com/jlowin/fastmcp)
-- **qBittorrent API**: [qBittorrent Wiki](https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-4.1))
+- [Model Context Protocol](https://spec.modelcontextprotocol.io/) - The protocol this server implements
+- [qBittorrent Web API](https://github.com/qbittorrent/qbittorrent/wiki/WebUI-API-(qBittorrent-4.1)) - The API we connect to
+- [FastMCP](https://github.com/jlowin/fastmcp) - The framework used for MCP implementation
 
-## License & Contributing
-
-MIT License - See LICENSE file for details.
-
-Development guidelines and architecture decisions: See [CLAUDE.md](CLAUDE.md)
