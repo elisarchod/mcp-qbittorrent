@@ -37,18 +37,18 @@ graph LR
 ```mermaid
 graph TB
     User --> API[FastAPI Endpoint]
-    API --> Graph[@turtleapp/graph]
+    API --> GraphApp[TurtleApp Graph]
 
-    subgraph "Multi-Agent Orchestration"
-        Graph --> Supervisor[Supervisor Agent]
+    subgraph MultiAgent[Multi-Agent Orchestration]
+        GraphApp --> Supervisor[Supervisor Agent]
         Supervisor --> MovieRetriever[Movie Retriever Agent]
         Supervisor --> LibraryAgent[Library Manager Agent]
         Supervisor --> MCPClient[MCP Client Layer]
     end
 
-    subgraph "MCP Server (@turtleapp/qbittorrent-mcp)"
-        MCPClient --> MCPServer[FastMCP Server]
-        MCPServer --> MCPTools[6 MCP Tools]
+    subgraph MCPServer[MCP Server - qBittorrent]
+        MCPClient --> Server[FastMCP Server]
+        Server --> MCPTools[6 MCP Tools]
         MCPTools --> QBClient[Async qBittorrent Client]
         QBClient --> QBittorrentAPI[qBittorrent Web API]
     end
